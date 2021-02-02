@@ -19,8 +19,15 @@ using namespace cv;
 
 
 float getMotionDifference(Mat& prevMat, Mat& currentMat){
-    Mat diff;
-    cv::subtract(prevMat,currentMat,diff);
+    Mat blurPrev,blurCurrent,diff;
+    
+    
+    cv::GaussianBlur(prevMat, blurPrev, Size(21,21), 0);
+    cv::GaussianBlur(currentMat, blurCurrent, Size(21,21), 0);
+    
+    cv::absdiff(blurPrev,blurCurrent,diff);
+    cv::threshold(diff, diff, 25, 255, THRESH_BINARY);
+
 
     return cv::mean(diff)[0];
 }
@@ -29,6 +36,7 @@ float getMotionDifference(Mat& prevMat, Mat& currentMat){
 int main(int argc, const char * argv[]) {
     
     namedWindow("Motion");
+    namedWindow("Diff");
 
     VideoCapture VideoStream(0);
 
@@ -57,14 +65,14 @@ int main(int argc, const char * argv[]) {
         cvtColor(ReferenceFrame, GrayFrame, COLOR_BGR2GRAY);
       
         float diff = getMotionDifference(OldReferenceFrame,GrayFrame);
-        
+        std::cout<<diff<<std::endl;
         cv::split(ReferenceFrame, rgbchannel);
         
         
-        double b[2][3] = {{1,0,(diff - 1) * 20}, {0,1,0}};
+        double b[2][3] = {{1,0,(diff) * 20}, {0,1,0}};
         Mat translationMatBlue = Mat(2,3,CV_64FC1,b);
         
-        double r[2][3] = {{1,0,-(diff - 1)* 20}, {0,1,0}};
+        double r[2][3] = {{1,0,-(diff)* 20}, {0,1,0}};
         Mat translationMatRed = Mat(2,3,CV_64FC1,r);
         
         warpAffine(rgbchannel[0] , rgbchannel[0] , translationMatBlue,rgbchannel[0].size(), INTER_LINEAR, BORDER_TRANSPARENT);
@@ -72,11 +80,15 @@ int main(int argc, const char * argv[]) {
 
         cv::merge(rgbchannel,3, mergedArray);
         
+        Mat diffMat;
+        cv::subtract(GrayFrame,OldReferenceFrame,diffMat); 
         imshow("Motion",mergedArray);
+        imshow("Diff",  diffMat);
 
         OldReferenceFrame = GrayFrame.clone();
 
     }while(waitKey(30) < 0);
+    
 
     return 0;
 }
